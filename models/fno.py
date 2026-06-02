@@ -12,20 +12,20 @@ Consider implementing 'enforce hermitian symmetry' in spectral convolution.
 
 Consider implementing domain_padding percentage parameter.
 
-FFT normalisation convention hard coded to 'forward' to match the default of neuralop library.
+FFT normalisation convention hard coded to 'forward' to match the default of neuralop 
+library.
 
 Consider implementing skip connections.
 
-We optionally append the grid coordinates as extra channels because the so model knows the domain positioning.
-
-Currently GELU activation function is hardcoded in for the lifting and projection MLPs. Investigate using different ones or setting these as the input activation.
+We optionally append the grid coordinates as extra channels because the so model knows 
+the domain positioning.
 """
 
 
 # Complex multiplication helper in Fourier space
 def compl_mul2d(
     v_ft: torch.Tensor,   # shape: (B, in_channels, modes_x, modes_y), complex
-    W: torch.Tensor  # shape: (in_channels, out_channels, modes_x, modes_y), complex
+    R: torch.Tensor  # shape: (in_channels, out_channels, modes_x, modes_y), complex
 ) -> torch.Tensor:
     """
     Multiply Fourier coefficients by learned complex weights.
@@ -35,7 +35,7 @@ def compl_mul2d(
     Output shape:
         (B, out_channels, modes_x, modes_y)
     """
-    return torch.einsum("bixy,ioxy->boxy", v_ft, W)
+    return torch.einsum("bixy,ioxy->boxy", v_ft, R)
 
  
 class SpectralConv2d(nn.Module):
@@ -66,14 +66,16 @@ class SpectralConv2d(nn.Module):
  
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.modes_x = modes_x  # number of modes kept in first spatial frequency direction
+        # Number of modes kept in first spatial frequency direction
+        self.modes_x = modes_x 
 
-        # For real FFT, the last Fourier axis stores only nonredundant half
-        self.modes_y = modes_y // 2 + 1  # number of modes kept in second spatial frequency direction
+        # Number of modes kept in second spatial frequency direction
+        # (for real FFT, the last Fourier axis stores only nonredundant half)
+        self.modes_y = modes_y // 2 + 1 
 
-        # Small initialization scale is standard
+        # Glorot scaling
         scale = (2.0 / (in_channels + out_channels))**0.5
- 
+        
         self.weights = nn.Parameter(
             scale * torch.randn(
                 in_channels, out_channels, self.modes_x, self.modes_y, dtype=torch.cfloat
@@ -165,7 +167,7 @@ class FNOBlock2d(nn.Module):
         hidden_channels: int,
         modes_x: int,
         modes_y: int,
-        activation=F.gelu,
+        activation: nn.Module = F.gelu,
         bias: bool = True
 
     ):
@@ -231,7 +233,7 @@ class FNO2d(nn.Module):
         lifting_channels: int | None = None,
         projection_channels: int | None = None,
         append_grid: bool = True,
-        activation=F.gelu,
+        activation: nn.Module = F.gelu,
         bias: bool = True
     ):
         super().__init__()
@@ -258,7 +260,7 @@ class FNO2d(nn.Module):
         # Lifting layer (small pointwise MLP using 1x1 convolutions)
         self.lifting = nn.Sequential(
             nn.Conv2d(lifting_in_channels, lifting_channels, kernel_size=1),
-            nn.GELU(),
+            activation,
             nn.Conv2d(lifting_channels, hidden_channels, kernel_size=1),
         )
  
@@ -280,7 +282,7 @@ class FNO2d(nn.Module):
         # Again, small pointwise MLP via 1x1 convolutions.
         self.projection = nn.Sequential(
             nn.Conv2d(hidden_channels, projection_channels, kernel_size=1),
-            nn.GELU(),
+            activation,
             nn.Conv2d(projection_channels, out_channels, kernel_size=1),
         )
  
@@ -325,7 +327,7 @@ class FNO2d(nn.Module):
             a = torch.cat([a, grid], dim=1)  # concat along channel dimension
  
         # Lift to hidden width d_v
-        v = self.lifting(a)  # shape: (B, hidden_channels, nx, ny)
+        v = self.lifting(a)  # shape (B, hidden_channels, nx, ny)
  
         # Repeated FNO blocks
         for block in self.blocks:
