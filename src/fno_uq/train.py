@@ -8,7 +8,7 @@ def train_one_epoch(model, train_loader, optimiser, loss_fn, device):
     ----------
     model : torch.nn.Module
         Neural operator model to be trained.
-    train_loader : torch.utils.data.DataLoader
+    train_loader
         DataLoader providing training batches. Each batch must be a dict
         containing keys "x" and "y".
     optimiser : torch.optim.Optimizer
@@ -24,12 +24,11 @@ def train_one_epoch(model, train_loader, optimiser, loss_fn, device):
 
     total_loss = 0
     for item in train_loader:
-        x, y = item["x"].to(device), item["y"].to(device)
-        pred = model(x)
-
-        loss = loss_fn(pred, y)
-        total_loss += loss.item() * x.size(0)
         optimiser.zero_grad(set_to_none=True)
+        a, u = item["x"].to(device), item["y"].to(device)
+        u_pred = model(a)
+        loss = loss_fn(u_pred, u)
+        total_loss += loss.item() * a.size(0)
         loss.backward()
         optimiser.step()
     
@@ -61,18 +60,20 @@ def evaluate(model, loader, loss_fn, device):
 
     total_loss = 0
     for item in loader:
-        x, y = item["x"].to(device), item["y"].to(device)
-        pred = model(x)
+        a, u = item["x"].to(device), item["y"].to(device)
+        u_pred = model(a)
 
-        loss = loss_fn(pred, y)
-        total_loss += loss.item() * x.size(0)
+        loss = loss_fn(u_pred, u)
+        total_loss += loss.item() * a.size(0)
 
     return total_loss / len(loader.dataset)
 
 
-def train(model, train_loader, test_loaders, loss_fn, optimiser, device, epochs=50):
+def train(model, train_loader, test_loaders, loss_fn, optimiser, device, 
+          epochs=50):
     """
-    Train a model and evaluate it periodically across multiple validation datasets.
+    Train a model and evaluate it periodically across multiple validation 
+    datasets.
 
     Parameters
     ----------
@@ -94,15 +95,15 @@ def train(model, train_loader, test_loaders, loss_fn, optimiser, device, epochs=
     dict
         Training history containing:
         - "train_loss": list of training losses per epoch
-        - "val_loss": dict mapping each test_loader resolution to a list of validation 
-                      losses per epoch
+        - "val_loss": dict mapping each test_loader resolution to a list of 
+                      validation losses per epoch
     """
 
     model.to(device)
 
     history = {
         "train_loss": [],
-        "val_loss": {res: [] for res in test_loaders}
+        "val_loss": {res: [] for res in test_loaders} if test_loaders else {}
     }
 
     for epoch in range(epochs):
@@ -111,9 +112,10 @@ def train(model, train_loader, test_loaders, loss_fn, optimiser, device, epochs=
         history["train_loss"].append(train_loss)
         
         # Evaluate at all resolutions
-        for res, loader in test_loaders.items():
-            val_loss = evaluate(model, loader, loss_fn, device)
-            history["val_loss"][res].append(val_loss)
+        if test_loaders:
+            for res, loader in test_loaders.items():
+                val_loss = evaluate(model, loader, loss_fn, device)
+                history["val_loss"][res].append(val_loss)
 
         # Print updates
         if epoch % 5 == 0:

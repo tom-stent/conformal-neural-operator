@@ -176,7 +176,7 @@ class FNOBlock2d(nn.Module):
         return v
  
  
-class FNO2d(nn.Module):
+class FNO2D(nn.Module):
     """ 
     Expected input shape: (B, in_channels, nx, ny)
  
@@ -271,8 +271,8 @@ class FNO2d(nn.Module):
         grid_x = torch.linspace(0, 1, nx, device=device, dtype=dtype)
         grid_y = torch.linspace(0, 1, ny, device=device, dtype=dtype)
 
-        grid_x = grid_x[None, None, :, None].repeat(batch_size, 1, 1, ny)
-        grid_y = grid_y[None, None, None, :].repeat(batch_size, 1, nx, 1)
+        grid_x = grid_x[None, None, :, None].expand(batch_size, 1, nx, ny)
+        grid_y = grid_y[None, None, None, :].expand(batch_size, 1, nx, ny)
 
         grid = torch.cat([grid_x, grid_y], dim=1)
         return grid # shape (B, 2, nx, ny)
@@ -302,3 +302,20 @@ class FNO2d(nn.Module):
         u = self.projection(v)
  
         return u
+    
+
+
+
+
+
+
+class FNO1D(nn.Module):
+    """ 
+    SIMILAR TO ABOVE, BUT 1D
+    """
+ 
+    def __init__(
+        self
+    ):
+        super().__init__()
+        pass
