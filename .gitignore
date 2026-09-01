@@ -1,0 +1,11 @@
+.env
+*.log
+__pycache__/
+.DS_Store
+.ipynb_checkpoints/
+.vscode/
+exploratory/
+*.egg-info/
+datasets/
+report/*
+!report/2608.28515v1.pdf
